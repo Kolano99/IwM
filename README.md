@@ -3,4 +3,4 @@
 # Installation:
 
 * pip install -r requirements.txt
-* streamlit main.py
+* streamlit run main.py
