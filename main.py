@@ -1,8 +1,13 @@
+import base64
 from math import radians
 
 import numpy as np
 import streamlit as st
 from PIL import Image
+from pydicom.dataset import FileDataset, FileMetaDataset
+
+import tempfile
+import datetime
 
 
 def make_square(im):
@@ -108,6 +113,11 @@ def inverse_radon_transform(sinogram, size, span):
     return image
 
 
+def download_link(object_to_download, download_filename, download_link_text):
+    b64 = base64.b64encode(object_to_download.encode()).decode()
+    return f'<a href="data:file/txt;base64,{b64}" download="{download_filename}">{download_link_text}</a>'
+
+
 if __name__ == '__main__':
     title = 'Tomography simulator'
     st.set_page_config(page_title=title, layout='centered')
@@ -137,11 +147,36 @@ if __name__ == '__main__':
 
         st.image(PIL_image, "Inverse radon")
 
-        # first_name = st.text_input("Patient's first name")
-        # last_name = st.text_input("Patient's last name")
-        # commentary = st.text_input("Medical commentary")
-        # if re.match(regex_pattern, first_name) and re.match(regex_pattern, last_name):
-        #     if st.button("Save"):
-        #         st.text("Saved!")
-        # else:
-        #     st.warning("First name and last name should start with capital case and continue with non capital")
+        first_name = st.text_input("Patient's first name")
+        last_name = st.text_input("Patient's last name")
+        commentary = st.text_input("Medical commentary")
+
+        suffix = '.dcm'
+        filename_little_endian = tempfile.NamedTemporaryFile(suffix=suffix).name
+
+        file_meta = FileMetaDataset()
+        file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
+        file_meta.MediaStorageSOPInstanceUID = "1.2.3"
+        file_meta.ImplementationClassUID = "1.2.3.4"
+
+        ds = FileDataset(filename_little_endian, {},
+                         file_meta=file_meta, preamble=b"\0" * 128)
+
+        ds.PatientName = "Test^Firstname"
+        ds.PatientID = "123456"
+
+        ds.is_little_endian = True
+        ds.is_implicit_VR = True
+
+        dt = datetime.datetime.now()
+        ds.ContentDate = dt.strftime('%Y%m%d')
+        timeStr = dt.strftime('%H%M%S.%f')  # long format with micro seconds
+        ds.ContentTime = timeStr
+
+        ds.save_as(filename_little_endian)
+
+        if st.button('Download'):
+            tmp_download_link = download_link(filename_little_endian, "PLIK.dcm", "POBIERZ")
+            st.markdown(tmp_download_link, unsafe_allow_html=True)
+
+        st.text("zapisano")
