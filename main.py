@@ -2,7 +2,6 @@ import base64
 import datetime
 import os
 import tempfile
-import time
 from math import radians, pi
 
 import numpy as np
@@ -105,16 +104,16 @@ def tresh(array, min, max):
 
 def create_mask(size):
     mask = np.zeros(size)
+    nominator = (-4 / pow(pi, 2))
     center = int(size / 2)
     mask[center] = 1.0
     for i in range(center + 1, len(mask)):
         dist = i - center
         if dist % 2 == 0:
             mask[i] = 0.0
-            mask[center - dist] = 0.0
         else:
-            mask[i] = (-4 / pow(pi, 2)) / pow(dist, 2)
-            mask[center - dist] = mask[i]
+            mask[i] = nominator / pow(dist, 2)
+        mask[center - dist] = mask[i]
     return mask
 
 
@@ -152,11 +151,6 @@ def inverse_radon_transform(sinogram, size, span, arr, steps, filter=True):
     image = normalize(image)
     image = reshape_to_original(image, size)
     return image
-
-
-def download_link(object_to_download, download_filename, download_link_text):
-    b64 = base64.b64encode(object_to_download.encode()).decode()
-    return f'<a href="data:file/txt;base64,{b64}" download="{download_filename}">{download_link_text}</a>'
 
 
 def get_binary_file_downloader_html(bin_file, file_label='File'):
@@ -220,55 +214,6 @@ def create_dicom(path, image, meta):
     fd.PixelData = (image * 255).astype(np.uint16).tobytes()
 
     fd.save_as(path)
-
-
-def write_dicom(pixel_array, filename):
-    """
-    INPUTS:
-    pixel_array: 2D numpy ndarray.  If pixel_array is larger than 2D, errors.
-    filename: string name for the output file.
-    """
-
-    # This code block was taken from the output of a MATLAB secondary
-    # capture.  I do not know what the long dotted UIDs mean, but
-    # this code works.
-    file_meta = Dataset()
-    file_meta.MediaStorageSOPClassUID = 'Secondary Capture Image Storage'
-    file_meta.MediaStorageSOPInstanceUID = '1.3.6.1.4.1.9590.100.1.1.111165684411017669021768385720736873780'
-    file_meta.ImplementationClassUID = '1.3.6.1.4.1.9590.100.1.0.100.4.0'
-    ds = FileDataset(filename, {}, file_meta=file_meta, preamble="\0" * 128)
-    ds.Modality = 'WSD'
-    ds.ContentDate = str(datetime.date.today()).replace('-', '')
-    ds.ContentTime = str(time.time())  # milliseconds since the epoch
-    ds.StudyInstanceUID = '1.3.6.1.4.1.9590.100.1.1.124313977412360175234271287472804872093'
-    ds.SeriesInstanceUID = '1.3.6.1.4.1.9590.100.1.1.369231118011061003403421859172643143649'
-    ds.SOPInstanceUID = '1.3.6.1.4.1.9590.100.1.1.111165684411017669021768385720736873780'
-    ds.SOPClassUID = 'Secondary Capture Image Storage'
-    ds.SecondaryCaptureDeviceManufctur = 'Python 2.7.3'
-
-    ## These are the necessary imaging components of the FileDataset object.
-    ds.SamplesPerPixel = 1
-    ds.PhotometricInterpretation = "MONOCHROME2"
-    ds.PixelRepresentation = 0
-    ds.HighBit = 15
-    ds.BitsStored = 16
-    ds.BitsAllocated = 16
-    ds.SmallestImagePixelValue = '\\x00\\x00'
-    ds.LargestImagePixelValue = '\\xff\\xff'
-    ds.Columns = pixel_array.shape[0]
-    ds.Rows = pixel_array.shape[1]
-    if pixel_array.dtype != np.uint16:
-        pixel_array = pixel_array.astype(np.uint16)
-    ds.PixelData = pixel_array.tostring()
-
-    ds.save_as(filename)
-
-
-def save_uploadedfile(uploadedfile):
-    with open(os.path.join("tempDir", uploadedfile.name), "wb") as f:
-        f.write(uploadedfile.getbuffer())
-    return st.success("Saved File:{} to tempDir".format(uploadedfile.name))
-
 
 def array_last_element(arr):
     return len(arr) - 1
@@ -337,89 +282,8 @@ if __name__ == '__main__':
         patient_id = st.text_input("Patient's ID")
         date = st.date_input("Creating date")
         commentary = st.text_input("Medical commentary")
-        #
         suffix = '.dcm'
         filename_little_endian = tempfile.NamedTemporaryFile(suffix=suffix, delete=False).name
-        #
-        # file_meta = FileMetaDataset()
-        # file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
-        # file_meta.MediaStorageSOPInstanceUID = "1.2.3"
-        # file_meta.ImplementationClassUID = "1.2.3.4"
-        #
-        # ds = FileDataset(filename_little_endian, {},
-        #                  file_meta=file_meta, preamble=b"\0" * 128)
-        #
-        # ds.PatientName = "Test^Firstname"
-        # ds.PatientID = "123456"
-        #
-        # ds.is_little_endian = True
-        # ds.is_implicit_VR = True
-        #
-        # dt = datetime.datetime.now()
-        # ds.ContentDate = dt.strftime('%Y%m%d')
-        # timeStr = dt.strftime('%H%M%S.%f')  # long format with micro seconds
-        # ds.ContentTime = timeStr
-        #
-        # ds.save_as(filename_little_endian)
-        # write_dicom(img_as_float(start_img), filename_little_endian)
-        #
-        # x = np.arange(16).reshape(16, 1)
-        # pixel_array = (x + x.T) * 32
-        # pixel_array = np.tile(pixel_array, (16, 16))
-        #
-        # image2d = pixel_array.astype(np.uint16)
-        #
-        # meta = pydicom.Dataset()
-        # meta.MediaStorageSOPClassUID = pydicom._storage_sopclass_uids.MRImageStorage
-        # meta.MediaStorageSOPInstanceUID = pydicom.uid.generate_uid()
-        # meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
-        #
-        # ds = Dataset()
-        # ds.file_meta = meta
-        #
-        # ds.is_little_endian = True
-        # ds.is_implicit_VR = False
-        #
-        # ds.SOPClassUID = pydicom._storage_sopclass_uids.MRImageStorage
-        # ds.PatientName = "Test^Firstname"
-        # ds.PatientID = "123456"
-        #
-        # ds.Modality = "MR"
-        # ds.SeriesInstanceUID = pydicom.uid.generate_uid()
-        # ds.StudyInstanceUID = pydicom.uid.generate_uid()
-        # ds.FrameOfReferenceUID = pydicom.uid.generate_uid()
-        #
-        # ds.BitsStored = 16
-        # ds.BitsAllocated = 16
-        # ds.SamplesPerPixel = 1
-        # ds.HighBit = 15
-        #
-        # ds.ImagesInAcquisition = "1"
-        #
-        # ds.Rows = image2d.shape[0]
-        # ds.Columns = image2d.shape[1]
-        # ds.InstanceNumber = 1
-        #
-        # ds.ImagePositionPatient = r"0\0\1"
-        # ds.ImageOrientationPatient = r"1\0\0\0\-1\0"
-        # ds.ImageType = r"ORIGINAL\PRIMARY\AXIAL"
-        #
-        # ds.RescaleIntercept = "0"
-        # ds.RescaleSlope = "1"
-        # ds.PixelSpacing = r"1\1"
-        # ds.PhotometricInterpretation = "MONOCHROME2"
-        # ds.PixelRepresentation = 1
-        #
-        # pydicom.dataset.validate_file_meta(ds.file_meta, enforce_standard=True)
-        #
-        # print("Setting pixel data...")
-        # ds.PixelData = image2d.tobytes()
-        #
-        # ds.save_as(filename_little_endian)
-
-        # save_uploadedfile()
-
-        # if st.button('Download'):
 
         create_dicom(filename_little_endian, np.array(image_after), dict(
             PatientName=last_name + '^' + first_name,
