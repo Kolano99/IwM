@@ -165,6 +165,7 @@ def rmsdiff(im1, im2):
     return np.sqrt(np.mean((im1 - im2) ** 2))
 
 
+# checked on https://www.imaios.com/en/Imaios-Dicom-Viewer
 def create_dicom(path, image, meta):
     ds = Dataset()
     ds.MediaStorageSOPClassUID = MRImageStorage
@@ -214,6 +215,7 @@ def create_dicom(path, image, meta):
     fd.PixelData = (image * 255).astype(np.uint16).tobytes()
 
     fd.save_as(path)
+
 
 def array_last_element(arr):
     return len(arr) - 1
